@@ -1,0 +1,188 @@
+{% load django_bootstrap5 %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}IT Support System{% endblock %}</title>
+    {% bootstrap_css %}
+    {% bootstrap_javascript %}
+    
+    <!-- Custom CSS -->
+    <style>
+        .navbar-brand {
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+        
+        .company-logo {
+            height: 40px;
+            width: auto;
+            margin-right: 10px;
+        }
+        
+        .badge-points {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .level-badge {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .status-open {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .status-in-progress {
+            background-color: #ffc107;
+            color: black;
+        }
+        
+        .status-resolved {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .status-closed {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .priority-urgent {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .priority-high {
+            background-color: #fd7e14;
+            color: white;
+        }
+        
+        .priority-medium {
+            background-color: #ffc107;
+            color: black;
+        }
+        
+        .priority-low {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .progress-bar {
+            background-color: #007bff;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.4rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.25rem;
+        }
+        
+        .badge-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .badge-pill {
+            border-radius: 10rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'dashboard' %}">
+                <img src="{% static 'workorders/images/logo.png' %}" alt="Company Logo" class="company-logo">
+                IT Support System
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'work_order_list' %}">Work Orders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'work_order_create' %}">Create Ticket</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'leaderboard' %}">Leaderboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'kpi_report' %}">KPI Report</a>
+                    </li>
+                </ul>
+                
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                {{ user.username }}
+                                {% if user.userprofile %}
+                                    <span class="badge level-badge">Lvl {{ user.userprofile.level }}</span>
+                                    <span class="badge badge-points">{{ user.userprofile.total_points }}pts</span>
+                                {% endif %}
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'user_profile' %}">Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="post" action="{% url 'logout' %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item btn btn-link p-0 text-start" style="border: none; background: none; color: inherit; text-decoration: none; width: 100%;">
+                                            Logout
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'login' %}">Login</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="py-4">
+        {% if messages %}
+            <div class="container">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        {% block content %}
+        {% endblock %}
+    </main>
+    
+    <!-- Chart.js for KPI charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    {% block extra_js %}
+    {% endblock %}
+</body>
+</html>

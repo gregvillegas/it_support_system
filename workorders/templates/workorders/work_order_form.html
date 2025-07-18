@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% load django_bootstrap5 %}
+
+{% block content %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>{% if work_order %}Edit Work Order{% else %}Create New Work Order{% endif %}</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="workOrderForm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+                            {{ form.title }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                            {{ form.description }}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.task_type.id_for_label }}" class="form-label">Task Type</label>
+                                    {{ form.task_type }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.task_category.id_for_label }}" class="form-label">Task Category</label>
+                                    {{ form.task_category }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.priority.id_for_label }}" class="form-label">Priority</label>
+                                    {{ form.priority }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="{{ form.difficulty_rating.id_for_label }}" class="form-label">Difficulty (1-5)</label>
+                                    {{ form.difficulty_rating }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.assigned_to.id_for_label }}" class="form-label">Assigned To</label>
+                            {{ form.assigned_to }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="{{ form.due_date.id_for_label }}" class="form-label">Due Date</label>
+                            {{ form.due_date }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Location</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="locationSearch" placeholder="Enter location name" value="{{ form.location_name.value|default:'' }}">
+                                <button class="btn btn-outline-secondary" type="button" id="geocodeBtn">📍 Find Location</button>
+                            </div>
+                            <small class="form-text text-muted">Click "Find Location" to geocode the address</small>
+                        </div>
+                        
+                        {{ form.location_name }}
+                        {{ form.latitude }}
+                        {{ form.longitude }}
+                        
+                        <div id="mapContainer" style="height: 300px; margin-bottom: 20px; display: none;">
+                            <div id="map" style="height: 100%;"></div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'work_order_list' %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">
+                                {% if work_order %}Update Work Order{% else %}Create Work Order{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let map = null;
+let marker = null;
+
+document.getElementById('geocodeBtn').addEventListener('click', function() {
+    const locationName = document.getElementById('locationSearch').value;
+    if (!locationName) {
+        alert('Please enter a location name');
+        return;
+    }
+    
+    // Show loading state
+    const btn = this;
+    const originalText = btn.textContent;
+    btn.textContent = 'Searching...';
+    btn.disabled = true;
+    
+    // Make geocoding request
+    fetch('{% url "geocode_location" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: 'location_name=' + encodeURIComponent(locationName)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update form fields
+            document.getElementById('{{ form.location_name.id_for_label }}').value = locationName;
+            document.getElementById('{{ form.latitude.id_for_label }}').value = data.latitude;
+            document.getElementById('{{ form.longitude.id_for_label }}').value = data.longitude;
+            
+            // Show map
+            showMap(data.latitude, data.longitude, locationName);
+            
+            // Show success message
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <strong>Location found!</strong> ${data.display_name}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.querySelector('.card-body').insertBefore(alertDiv, document.querySelector('form'));
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        } else {
+            alert('Location not found: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while searching for the location');
+    })
+    .finally(() => {
+        // Reset button state
+        btn.textContent = originalText;
+        btn.disabled = false;
+    });
+});
+
+function showMap(lat, lng, locationName) {
+    const mapContainer = document.getElementById('mapContainer');
+    const mapDiv = document.getElementById('map');
+    
+    mapContainer.style.display = 'block';
+    
+    // Clear existing map
+    mapDiv.innerHTML = '';
+    
+    // Initialize Leaflet map
+    map = L.map('map').setView([lat, lng], 15);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+    }).addTo(map);
+    
+    // Add marker
+    marker = L.marker([lat, lng]).addTo(map)
+        .bindPopup(`
+            <div class="text-center">
+                <strong>${locationName}</strong><br>
+                <small>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}</small>
+            </div>
+        `)
+        .openPopup();
+    
+    // Allow clicking on map to update location
+    map.on('click', function(e) {
+        const newLat = e.latlng.lat;
+        const newLng = e.latlng.lng;
+        
+        // Update marker position
+        marker.setLatLng([newLat, newLng]);
+        
+        // Update form fields
+        document.getElementById('{{ form.latitude.id_for_label }}').value = newLat;
+        document.getElementById('{{ form.longitude.id_for_label }}').value = newLng;
+        
+        // Update popup
+        marker.bindPopup(`
+            <div class="text-center">
+                <strong>${locationName}</strong><br>
+                <small>Lat: ${newLat.toFixed(6)}, Lng: ${newLng.toFixed(6)}</small><br>
+                <small class="text-muted">Location updated by clicking on map</small>
+            </div>
+        `).openPopup();
+    });
+    
+    // Add a small instruction
+    const info = L.control({position: 'bottomright'});
+    info.onAdd = function() {
+        const div = L.DomUtil.create('div', 'info-box');
+        div.innerHTML = '<small style="background: white; padding: 5px; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">Click on map to adjust location</small>';
+        return div;
+    };
+    info.addTo(map);
+}
+
+// Show existing location if editing
+{% if work_order.latitude and work_order.longitude %}
+document.addEventListener('DOMContentLoaded', function() {
+    showMap({{ work_order.latitude }}, {{ work_order.longitude }}, '{{ work_order.location_name }}');
+});
+{% endif %}
+</script>
+{% endblock %}

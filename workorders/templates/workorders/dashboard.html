@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+    <h1 class="mt-4">Dashboard</h1>
+    
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary mb-3">
+                <div class="card-header">Total Tickets</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ total_tickets }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-warning mb-3">
+                <div class="card-header">Open Tickets</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ open_tickets }}</h5>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-success mb-3">
+                <div class="card-header">Resolved Tickets</div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ resolved_tickets }}</h5>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="mt-5">Category Statistics</h2>
+    <div class="row">
+        {% for category in category_stats %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card mb-3" style="border-left: 5px solid {{ category.color }};">
+                <div class="card-body">
+                    <h5 class="card-title">{{ category.name }}</h5>
+                    <p class="card-text">Ticket Count: {{ category.ticket_count }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h2 class="mt-5">Top Performers</h2>
+    <ul class="list-group">
+        {% for performer in top_performers %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            {{ performer.user.username }}
+            <span class="badge badge-primary badge-pill">{{ performer.total_points }} Points</span>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <h2 class="mt-5">Work Order Locations</h2>
+    <div id="map" style="height: 500px;">
+        {{ map_html|safe }}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Leaderboard - IT Support System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="text-center">🏆 Leaderboard</h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>User</th>
+                                    <th>Level</th>
+                                    <th>Points</th>
+                                    <th>Tickets Resolved</th>
+                                    <th>Avg Resolution Time</th>
+                                    <th>Badges</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for profile in profiles %}
+                                <tr {% if profile.user == request.user %}class="table-primary"{% endif %}>
+                                    <td>
+                                        <span class="fw-bold">{{ forloop.counter }}</span>
+                                        {% if forloop.counter == 1 %}
+                                            <span class="badge bg-warning">🥇</span>
+                                        {% elif forloop.counter == 2 %}
+                                            <span class="badge bg-secondary">🥈</span>
+                                        {% elif forloop.counter == 3 %}
+                                            <span class="badge bg-warning">🥉</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'user_profile_detail' profile.user.id %}" class="text-decoration-none">
+                                            {{ profile.user.username }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge level-badge">Level {{ profile.level }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-points">{{ profile.total_points }} pts</span>
+                                    </td>
+                                    <td>{{ profile.tickets_resolved }}</td>
+                                    <td>
+                                        {% if profile.average_resolution_time %}
+                                            {{ profile.average_resolution_time|floatformat:1 }}h
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% for badge in profile.badges %}
+                                            <span class="badge bg-info me-1">{{ badge }}</span>
+                                        {% empty %}
+                                            -
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center">No users found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

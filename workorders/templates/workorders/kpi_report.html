@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+{% block title %}KPI Report - IT Support System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>📊 KPI Report</h1>
+    
+    <!-- Date Range Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Generate Report</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total Tickets</h5>
+                    <h3>{{ total_tickets }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Resolved Tickets</h5>
+                    <h3>{{ resolved_tickets }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Pending Tickets</h5>
+                    <h3>{{ pending_tickets }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">Avg Resolution Time</h5>
+                    <h3>{{ avg_resolution_time }}h</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Top Performer -->
+    {% if top_performer %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">🏆 Top Performer</h5>
+            <p class="card-text">{{ top_performer.username }} - Outstanding performance this period!</p>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Charts -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Tickets by Status</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Tickets by Priority</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="priorityChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Status Chart
+const statusData = {{ status_data|safe }};
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+new Chart(statusCtx, {
+    type: 'doughnut',
+    data: {
+        labels: statusData.labels,
+        datasets: [{
+            data: statusData.data,
+            backgroundColor: [
+                '#dc3545',  // Open - Red
+                '#ffc107',  // In Progress - Yellow
+                '#28a745',  // Resolved - Green
+                '#6c757d'   // Closed - Gray
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Priority Chart
+const priorityData = {{ priority_data|safe }};
+const priorityCtx = document.getElementById('priorityChart').getContext('2d');
+new Chart(priorityCtx, {
+    type: 'bar',
+    data: {
+        labels: priorityData.labels,
+        datasets: [{
+            label: 'Tickets',
+            data: priorityData.data,
+            backgroundColor: [
+                '#28a745',  // Low - Green
+                '#ffc107',  // Medium - Yellow
+                '#fd7e14',  // High - Orange
+                '#dc3545'   // Urgent - Red
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

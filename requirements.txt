@@ -1,0 +1,10 @@
+Django==5.2.4
+django-bootstrap5==25.1
+folium==0.20.0
+requests==2.32.4
+email-validator==2.2.0
+dnspython==2.7.0
+gunicorn==21.2.0
+whitenoise==6.8.2
+psycopg2-binary==2.9.9
+python-decouple==3.8

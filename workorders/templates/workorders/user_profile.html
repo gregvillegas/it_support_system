@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}{{ profile_user.username }} Profile - IT Support System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4>👤 {{ profile_user.username }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <h2 class="text-primary">Level {{ profile.level }}</h2>
+                        <p class="text-muted">{{ profile.total_points }} Total Points</p>
+                    </div>
+                    
+                    <div class="progress mb-3">
+                        <div class="progress-bar" role="progressbar" style="width: {{ progress_percentage }}%">
+                            {{ progress_percentage|floatformat:0 }}%
+                        </div>
+                    </div>
+                    <small class="text-muted">Progress to Level {{ profile.level|add:1 }}</small>
+                    
+                    <hr>
+                    
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h5>{{ profile.tickets_resolved }}</h5>
+                            <small class="text-muted">Tickets Resolved</small>
+                        </div>
+                        <div class="col-6">
+                            <h5>{{ profile.average_resolution_time|floatformat:1 }}h</h5>
+                            <small class="text-muted">Avg Resolution Time</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>🏆 Badges</h5>
+                </div>
+                <div class="card-body">
+                    {% for badge in badges %}
+                        <span class="badge bg-info me-1 mb-1">{{ badge }}</span>
+                    {% empty %}
+                        <p class="text-muted">No badges earned yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#requested">Requested Tickets</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#assigned">Assigned Tickets</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="requested">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Ticket #</th>
+                                            <th>Title</th>
+                                            <th>Status</th>
+                                            <th>Created</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for ticket in requested_tickets %}
+                                        <tr>
+                                            <td>
+                                                <a href="{% url 'work_order_detail' ticket.pk %}">{{ ticket.ticket_number }}</a>
+                                            </td>
+                                            <td>{{ ticket.title|truncatechars:30 }}</td>
+                                            <td>
+                                                <span class="badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+                                            </td>
+                                            <td>{{ ticket.created_at|date:"M d, Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="4" class="text-center">No requested tickets.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="assigned">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Ticket #</th>
+                                            <th>Title</th>
+                                            <th>Status</th>
+                                            <th>Points</th>
+                                            <th>Created</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for ticket in assigned_tickets %}
+                                        <tr>
+                                            <td>
+                                                <a href="{% url 'work_order_detail' ticket.pk %}">{{ ticket.ticket_number }}</a>
+                                            </td>
+                                            <td>{{ ticket.title|truncatechars:30 }}</td>
+                                            <td>
+                                                <span class="badge status-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+                                            </td>
+                                            <td>
+                                                {% if ticket.points_earned %}
+                                                    <span class="badge badge-points">{{ ticket.points_earned }}pts</span>
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ ticket.created_at|date:"M d, Y" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="5" class="text-center">No assigned tickets.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
