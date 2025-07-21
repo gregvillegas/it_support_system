@@ -12,4 +12,5 @@ urlpatterns = [
     path('leaderboard/', views.leaderboard, name='leaderboard'),
     path('kpi-report/', views.kpi_report, name='kpi_report'),
     path('geocode/', views.geocode_location, name='geocode_location'),
+    path('test-endpoint/', views.test_endpoint, name='test_endpoint'),
 ]

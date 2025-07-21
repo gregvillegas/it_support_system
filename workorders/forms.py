@@ -16,6 +16,7 @@ class WorkOrderForm(forms.ModelForm):
             'due_date': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
             'latitude': forms.HiddenInput(),
             'longitude': forms.HiddenInput(),
+            'assigned_to': forms.SelectMultiple(attrs={'class': 'form-control', 'size': '6'}),
         }
 
     def __init__(self, *args, **kwargs):

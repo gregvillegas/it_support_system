@@ -72,6 +72,7 @@
                             <div class="input-group">
                                 <input type="text" class="form-control" id="locationSearch" placeholder="Enter location name" value="{{ form.location_name.value|default:'' }}">
                                 <button class="btn btn-outline-secondary" type="button" id="geocodeBtn">📍 Find Location</button>
+                                <button class="btn btn-outline-info" type="button" id="testBtn">🔧 Test</button>
                             </div>
                             <small class="form-text text-muted">Click "Find Location" to geocode the address</small>
                         </div>
@@ -117,6 +118,8 @@ document.getElementById('geocodeBtn').addEventListener('click', function() {
     btn.disabled = true;
     
     // Make geocoding request
+    console.log('Starting geocoding request for:', locationName);
+    
     fetch('{% url "geocode_location" %}', {
         method: 'POST',
         headers: {
@@ -125,42 +128,113 @@ document.getElementById('geocodeBtn').addEventListener('click', function() {
         },
         body: 'location_name=' + encodeURIComponent(locationName)
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('Geocoding response:', data);
         if (data.success) {
-            // Update form fields
-            document.getElementById('{{ form.location_name.id_for_label }}').value = locationName;
-            document.getElementById('{{ form.latitude.id_for_label }}').value = data.latitude;
-            document.getElementById('{{ form.longitude.id_for_label }}').value = data.longitude;
+            // Update form fields safely
+            console.log('Updating form fields...');
+            
+            // Update location name field (hidden)
+            const locationNameField = document.getElementById('{{ form.location_name.id_for_label }}');
+            if (locationNameField) {
+                locationNameField.value = locationName;
+                console.log('Updated location_name field:', locationName);
+            } else {
+                console.warn('location_name field not found');
+            }
+            
+            // Update latitude field (hidden)
+            const latitudeField = document.getElementById('{{ form.latitude.id_for_label }}');
+            if (latitudeField) {
+                latitudeField.value = data.latitude;
+                console.log('Updated latitude field:', data.latitude);
+            } else {
+                console.warn('latitude field not found');
+            }
+            
+            // Update longitude field (hidden)
+            const longitudeField = document.getElementById('{{ form.longitude.id_for_label }}');
+            if (longitudeField) {
+                longitudeField.value = data.longitude;
+                console.log('Updated longitude field:', data.longitude);
+            } else {
+                console.warn('longitude field not found');
+            }
             
             // Show map
             showMap(data.latitude, data.longitude, locationName);
             
             // Show success message
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert alert-success alert-dismissible fade show';
-            alertDiv.innerHTML = `
-                <strong>Location found!</strong> ${data.display_name}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.querySelector('.card-body').insertBefore(alertDiv, document.querySelector('form'));
-            
-            // Auto-dismiss after 5 seconds
-            setTimeout(() => {
-                alertDiv.remove();
-            }, 5000);
+            try {
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                alertDiv.innerHTML = `
+                    <strong>Location found!</strong> ${data.display_name}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                
+                const cardBody = document.querySelector('.card-body');
+                const form = document.querySelector('form');
+                
+                if (cardBody && form) {
+                    cardBody.insertBefore(alertDiv, form);
+                    console.log('Success message displayed');
+                    
+                    // Auto-dismiss after 5 seconds
+                    setTimeout(() => {
+                        if (alertDiv.parentNode) {
+                            alertDiv.remove();
+                        }
+                    }, 5000);
+                } else {
+                    console.warn('Could not display success message - card-body or form not found');
+                }
+            } catch (msgError) {
+                console.warn('Error displaying success message:', msgError);
+            }
         } else {
             alert('Location not found: ' + data.error);
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while searching for the location');
+        console.error('Detailed error:', error);
+        console.error('Error type:', typeof error);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        alert('An error occurred while searching for the location. Check the browser console for details.');
     })
     .finally(() => {
         // Reset button state
         btn.textContent = originalText;
         btn.disabled = false;
+    });
+});
+
+// Test connectivity button
+document.getElementById('testBtn').addEventListener('click', function() {
+    console.log('Testing connectivity...');
+    
+    fetch('{% url "test_endpoint" %}', {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => {
+        console.log('Test response status:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Test response:', data);
+        alert('Connectivity test successful! Check console for details.');
+    })
+    .catch(error => {
+        console.error('Test error:', error);
+        alert('Connectivity test failed. Check console for details.');
     });
 });
 
@@ -200,9 +274,12 @@ function showMap(lat, lng, locationName) {
         // Update marker position
         marker.setLatLng([newLat, newLng]);
         
-        // Update form fields
-        document.getElementById('{{ form.latitude.id_for_label }}').value = newLat;
-        document.getElementById('{{ form.longitude.id_for_label }}').value = newLng;
+        // Update form fields safely
+        const latField = document.getElementById('{{ form.latitude.id_for_label }}');
+        const lngField = document.getElementById('{{ form.longitude.id_for_label }}');
+        
+        if (latField) latField.value = newLat;
+        if (lngField) lngField.value = newLng;
         
         // Update popup
         marker.bindPopup(`

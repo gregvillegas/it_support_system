@@ -95,7 +95,15 @@
                             {{ work_order.get_status_display }}
                         </span>
                     </td>
-                    <td>{{ work_order.assigned_to.username|default:"-" }}</td>
+                    <td>
+                        {% if work_order.assigned_to.all %}
+                            {% for assignee in work_order.assigned_to.all %}
+                                <span class="badge bg-info me-1">{{ assignee.username }}</span>
+                            {% endfor %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
                     <td>{{ work_order.created_at|date:"M d, Y" }}</td>
                     <td>
                         {% if work_order.points_earned %}

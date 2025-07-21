@@ -115,17 +115,16 @@ def work_order_detail(request, pk):
     if request.method == 'POST' and 'update_status' in request.POST:
         status_form = WorkOrderStatusForm(request.POST, instance=work_order)
         if status_form.is_valid():
-            work_order = status_form.save(commit=False)
-            if work_order.status == 'resolved' and work_order.assigned_to:
-                # Award points to assigned user
-                profile, created = UserProfile.objects.get_or_create(
-                    user=work_order.assigned_to
-                )
-                profile.add_points(work_order.points_earned)
-                profile.tickets_resolved += 1
-                profile.save()
-            work_order.save()
+            work_order = status_form.save()
             messages.success(request, 'Status updated successfully!')
+            
+            # Add success message for point distribution if work order was resolved
+            if work_order.status == 'resolved':
+                assignees = work_order.assigned_to.all()
+                if assignees and work_order.points_earned > 0:
+                    points_per_user = work_order.points_earned // len(assignees)
+                    messages.success(request, f'Points distributed: {points_per_user} points to each assignee!')
+            
             return redirect('work_order_detail', pk=pk)
     else:
         status_form = WorkOrderStatusForm(instance=work_order)
@@ -163,6 +162,7 @@ def work_order_create(request):
             work_order = form.save(commit=False)
             work_order.requester = request.user
             work_order.save()
+            form.save_m2m()  # Save many-to-many relationships
             messages.success(request, f'Work order {work_order.ticket_number} created successfully!')
             return redirect('work_order_detail', pk=work_order.pk)
     else:
@@ -358,34 +358,91 @@ def create_work_order_map():
 @login_required
 def geocode_location(request):
     """Geocode location using a free service"""
-    if request.method == 'POST':
-        import requests
-        
-        location_name = request.POST.get('location_name')
-        if location_name:
-            try:
-                # Using OpenStreetMap Nominatim API (free)
-                url = f"https://nominatim.openstreetmap.org/search?format=json&q={location_name}&limit=1"
-                response = requests.get(url, headers={'User-Agent': 'IT-Support-System'})
-                data = response.json()
-                
-                if data:
-                    location = data[0]
-                    return JsonResponse({
-                        'success': True,
-                        'latitude': float(location['lat']),
-                        'longitude': float(location['lon']),
-                        'display_name': location['display_name']
-                    })
-                else:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Location not found'
-                    })
-            except Exception as e:
-                return JsonResponse({
-                    'success': False,
-                    'error': str(e)
-                })
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Only POST requests are allowed'})
     
-    return JsonResponse({'success': False, 'error': 'Invalid request'})
+    location_name = request.POST.get('location_name')
+    if not location_name or not location_name.strip():
+        return JsonResponse({'success': False, 'error': 'Please provide a location name'})
+    
+    try:
+        import requests
+        from urllib.parse import quote_plus
+        
+        # URL encode the location name to handle special characters
+        encoded_location = quote_plus(location_name.strip())
+        
+        # Using OpenStreetMap Nominatim API (free)
+        url = f"https://nominatim.openstreetmap.org/search?format=json&q={encoded_location}&limit=1&addressdetails=1"
+        
+        # Make the request with proper headers and timeout
+        response = requests.get(
+            url, 
+            headers={
+                'User-Agent': 'IT-Support-System/1.0 (Django Application)',
+                'Accept': 'application/json'
+            },
+            timeout=10  # 10 second timeout
+        )
+        
+        # Check if the request was successful
+        if response.status_code != 200:
+            return JsonResponse({
+                'success': False,
+                'error': f'Geocoding service returned status {response.status_code}'
+            })
+        
+        # Parse the JSON response
+        data = response.json()
+        
+        if data and len(data) > 0:
+            location = data[0]
+            return JsonResponse({
+                'success': True,
+                'latitude': float(location['lat']),
+                'longitude': float(location['lon']),
+                'display_name': location.get('display_name', location_name),
+                'raw_data': location  # For debugging
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': f'No results found for "{location_name}". Try being more specific or use a different search term.'
+            })
+            
+    except requests.exceptions.Timeout:
+        return JsonResponse({
+            'success': False,
+            'error': 'Request timed out. Please try again.'
+        })
+    except requests.exceptions.ConnectionError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Could not connect to geocoding service. Please check your internet connection.'
+        })
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Network error: {str(e)}'
+        })
+    except ValueError as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Invalid response from geocoding service: {str(e)}'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'Unexpected error: {str(e)}'
+        })
+
+
+@login_required
+def test_endpoint(request):
+    """Simple test endpoint to verify connectivity and CSRF"""
+    return JsonResponse({
+        'success': True,
+        'message': 'Test endpoint working',
+        'method': request.method,
+        'user': request.user.username if request.user.is_authenticated else 'Anonymous'
+    })

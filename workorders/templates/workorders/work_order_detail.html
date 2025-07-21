@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load django_bootstrap5 %}
+
+{% block title %}{{ work_order.ticket_number }} - {{ work_order.title }}{% endblock %}
+
+{% block content %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Work Order Details Card -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">{{ work_order.ticket_number }}</h4>
+                    <div>
+                        <a href="{% url 'work_order_edit' work_order.pk %}" class="btn btn-outline-primary btn-sm">Edit</a>
+                        <a href="{% url 'work_order_list' %}" class="btn btn-outline-secondary btn-sm">Back to List</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ work_order.title }}</h5>
+                    <p class="card-text">{{ work_order.description|linebreaks }}</p>
+                    
+                    <!-- Status and Priority Badges -->
+                    <div class="mb-3">
+                        <span class="badge status-{{ work_order.status }} me-2">{{ work_order.get_status_display }}</span>
+                        <span class="badge priority-{{ work_order.priority }}">{{ work_order.get_priority_display }}</span>
+                    </div>
+                    
+                    <!-- Details Grid -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Task Type:</strong> {{ work_order.task_type.name }}</p>
+                            <p><strong>Category:</strong> 
+                                <span class="badge" style="background-color: {{ work_order.task_category.color }}; color: white;">
+                                    {{ work_order.task_category.name }}
+                                </span>
+                            </p>
+                            <p><strong>Requester:</strong> {{ work_order.requester.get_full_name|default:work_order.requester.username }}</p>
+                            <p><strong>Assigned To:</strong> 
+                                {% if work_order.assigned_to.all %}
+                                    {% for assignee in work_order.assigned_to.all %}
+                                        <span class="badge bg-info me-1">{{ assignee.get_full_name|default:assignee.username }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">Not assigned</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Difficulty:</strong> {{ work_order.difficulty_rating }}/5</p>
+                            <p><strong>Created:</strong> {{ work_order.created_at|date:"F j, Y g:i A" }}</p>
+                            <p><strong>Last Updated:</strong> {{ work_order.updated_at|date:"F j, Y g:i A" }}</p>
+                            {% if work_order.due_date %}
+                            <p><strong>Due Date:</strong> {{ work_order.due_date|date:"F j, Y g:i A" }}</p>
+                            {% endif %}
+                            {% if work_order.resolved_at %}
+                            <p><strong>Resolved:</strong> {{ work_order.resolved_at|date:"F j, Y g:i A" }}</p>
+                            {% endif %}
+                            {% if work_order.points_earned %}
+                            <p><strong>Points Earned:</strong> <span class="badge badge-points">{{ work_order.points_earned }}pts</span></p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Location -->
+                    {% if work_order.location_name %}
+                    <div class="mt-4">
+                        <h6>Location</h6>
+                        <p><strong>{{ work_order.location_name }}</strong></p>
+                        {% if location_map %}
+                        <div class="mt-3" style="height: 300px;">
+                            {{ location_map|safe }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Comments Section -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Comments</h5>
+                </div>
+                <div class="card-body">
+                    {% for comment in comments %}
+                    <div class="mb-3 p-3 border rounded">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <strong>{{ comment.author.get_full_name|default:comment.author.username }}</strong>
+                            <small class="text-muted">{{ comment.created_at|date:"F j, Y g:i A" }}</small>
+                        </div>
+                        <div class="mt-2">{{ comment.comment|linebreaks }}</div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">No comments yet.</p>
+                    {% endfor %}
+                    
+                    <!-- Add Comment Form -->
+                    <form method="post" class="mt-4">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ comment_form.comment.id_for_label }}" class="form-label">Add Comment</label>
+                            {{ comment_form.comment }}
+                        </div>
+                        <button type="submit" name="add_comment" class="btn btn-primary">Add Comment</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Status Update Card -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Update Status</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="{{ status_form.status.id_for_label }}" class="form-label">Status</label>
+                            {{ status_form.status }}
+                        </div>
+                        <button type="submit" name="update_status" class="btn btn-success">Update Status</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Quick Info Card -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Info</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <div class="h4 mb-1">{{ work_order.difficulty_rating }}</div>
+                                <small class="text-muted">Difficulty</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 border rounded">
+                                <div class="h4 mb-1">{{ work_order.points_earned|default:"0" }}</div>
+                                <small class="text-muted">Points</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if work_order.due_date %}
+                    <div class="mt-3">
+                        <div class="p-2 border rounded text-center">
+                            <div class="h6 mb-1">
+                                {% if work_order.due_date > now %}
+                                    <span class="text-success">Due in {{ work_order.due_date|timeuntil }}</span>
+                                {% else %}
+                                    <span class="text-danger">Overdue by {{ work_order.due_date|timesince }}</span>
+                                {% endif %}
+                            </div>
+                            <small class="text-muted">{{ work_order.due_date|date:"M j, Y g:i A" }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Status badges */
+.status-open { background-color: #dc3545; }
+.status-in_progress { background-color: #fd7e14; }
+.status-waiting { background-color: #ffc107; color: #000; }
+.status-resolved { background-color: #28a745; }
+.status-closed { background-color: #6c757d; }
+
+/* Priority badges */
+.priority-low { background-color: #28a745; }
+.priority-medium { background-color: #ffc107; color: #000; }
+.priority-high { background-color: #fd7e14; }
+.priority-urgent { background-color: #dc3545; }
+
+/* Points badge */
+.badge-points { background-color: #6f42c1; }
+
+/* Comments styling */
+.border { border: 1px solid #dee2e6 !important; }
+</style>
+{% endblock %}

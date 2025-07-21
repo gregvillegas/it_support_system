@@ -31,7 +31,7 @@ class WorkOrderCommentInline(admin.TabularInline):
 class WorkOrderAdmin(admin.ModelAdmin):
     list_display = [
         'ticket_number', 'title', 'task_type', 'task_category', 
-        'priority', 'status', 'assigned_to', 'created_at', 'points_earned'
+        'priority', 'status', 'get_assignees', 'created_at', 'points_earned'
     ]
     list_filter = ['task_type', 'task_category', 'priority', 'status', 'created_at']
     search_fields = ['ticket_number', 'title', 'description']
@@ -59,6 +59,14 @@ class WorkOrderAdmin(admin.ModelAdmin):
             'fields': ('points_earned',)
         }),
     )
+    
+    def get_assignees(self, obj):
+        """Display all assigned users"""
+        assignees = obj.assigned_to.all()
+        if assignees:
+            return ", ".join([user.username for user in assignees])
+        return "None"
+    get_assignees.short_description = "Assigned To"
 
 
 @admin.register(UserProfile)

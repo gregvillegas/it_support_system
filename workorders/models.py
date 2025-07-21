@@ -3,7 +3,10 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from email_validator import validate_email, EmailNotValidError
+import logging
 
 
 class TaskType(models.Model):
@@ -65,7 +68,7 @@ class WorkOrder(models.Model):
     
     # People
     requester = models.ForeignKey(User, on_delete=models.CASCADE, related_name='requested_tickets')
-    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tickets')
+    assigned_to = models.ManyToManyField(User, blank=True, related_name='assigned_tickets')
     
     # Location
     location_name = models.CharField(max_length=200, blank=True)
@@ -132,6 +135,52 @@ class WorkOrder(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+
+
+# Get logger for points distribution
+logger = logging.getLogger('workorders.points')
+
+
+@receiver(post_save, sender=WorkOrder)
+def distribute_points_after_resolve(sender, instance, created, **kwargs):
+    """Distribute points to assignees when work order is resolved."""
+    if not created and instance.status == 'resolved':
+        assignees = list(instance.assigned_to.all())
+        
+        if not assignees:
+            logger.warning(f"Work order {instance.ticket_number} resolved but has no assignees")
+            return
+        
+        if instance.points_earned <= 0:
+            logger.warning(f"Work order {instance.ticket_number} resolved but has no points earned")
+            return
+        
+        points_per_user = instance.points_earned // len(assignees)
+        logger.info(
+            f"Distributing {instance.points_earned} points from {instance.ticket_number} "
+            f"to {len(assignees)} assignees ({points_per_user} points each)"
+        )
+        
+        for assignee in assignees:
+            try:
+                profile, profile_created = UserProfile.objects.get_or_create(user=assignee)
+                old_points = profile.total_points
+                old_tickets = profile.tickets_resolved
+                
+                profile.add_points(points_per_user)
+                profile.tickets_resolved += 1
+                profile.save()
+                
+                logger.info(
+                    f"Awarded {points_per_user} points to {assignee.username} "
+                    f"(total: {old_points} -> {profile.total_points}, "
+                    f"tickets: {old_tickets} -> {profile.tickets_resolved})"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to award points to {assignee.username} "
+                    f"for work order {instance.ticket_number}: {e}"
+                )
 
 
 class WorkOrderComment(models.Model):

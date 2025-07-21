@@ -305,10 +305,10 @@ class EmailProcessor:
                 task_type=self.email_account.default_task_type,
                 task_category=self.email_account.default_task_category,
                 priority=self.email_account.default_priority,
-                requester=user,
-                assigned_to=self.email_account.auto_assign_to
+                requester=user
             )
-            
+            if self.email_account.auto_assign_to:
+                work_order.assigned_to.add(self.email_account.auto_assign_to)
             return work_order
         except Exception as e:
             print(f"Error creating work order from email: {e}")
